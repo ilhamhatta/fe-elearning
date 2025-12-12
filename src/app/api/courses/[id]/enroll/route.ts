@@ -1,36 +1,31 @@
 // src/app/api/courses/[id]/enroll/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { serverFetch, ApiError } from "@/lib/serverFetch";
+// Proxy POST/DELETE ke Laravel: /courses/{id}/enroll
+import { NextResponse } from "next/server";
+import { ApiError, serverFetch } from "@/lib/serverFetch";
 
-/**
- * Enroll mahasiswa → proxy ke Laravel POST /courses/{id}/enroll
- * Body opsional: { course_id: id } (mengikuti contoh koleksi Postman)
- */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = params.id;
+async function proxy(method: "POST" | "DELETE", id: string) {
   try {
-    await serverFetch(`/courses/${id}/enroll`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ course_id: id }),
-    });
-    if (req.headers.get("x-requested-with") === "fetch") {
-      return NextResponse.json({ ok: true });
-    }
-    return NextResponse.redirect(new URL("/courses", req.url));
+    const res = await serverFetch(`/courses/${id}/enroll`, { method });
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
   } catch (e) {
     if (e instanceof ApiError) {
-      if (e.status === 401) {
-        return NextResponse.redirect(new URL("/login?next=/courses", req.url));
-      }
-      return NextResponse.json(
-        { message: e.message, status: e.status },
-        { status: e.status }
-      );
+      return NextResponse.json({ message: e.message }, { status: e.status });
     }
-    return NextResponse.json({ message: "Gagal enroll." }, { status: 500 });
+    throw e;
   }
+}
+
+export async function POST(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  return proxy("POST", params.id);
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  return proxy("DELETE", params.id);
 }

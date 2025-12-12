@@ -1,65 +1,41 @@
 // src/app/api/courses/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { serverFetch, ApiError } from "@/lib/serverFetch";
+import { NextResponse } from "next/server";
+import { ApiError, serverJson } from "@/lib/serverFetch";
 
-/**
- * POST (method spoof: _method=PUT|DELETE)
- * - Jika dipanggil via fetch (X-Requested-With: fetch) → return JSON
- * - Jika submit non-JS → redirect
- */
-export async function POST(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string }> } // ⬅️ params adalah Promise
-) {
-  const { id } = await ctx.params; // ⬅️ WAJIB di-await
-  const isFetch = req.headers.get("x-requested-with") === "fetch";
-  const form = await req.formData();
-  const method = String(form.get("_method") || "").toUpperCase();
+interface Params {
+  params: Promise<{ id: string }>;
+}
 
+export async function PUT(req: Request, { params }: Params) {
   try {
-    if (method === "PUT") {
-      const payload = {
-        name: String(form.get("name") ?? ""),
-        description: form.get("description")
-          ? String(form.get("description"))
-          : undefined,
-      };
-      await serverFetch(`/courses/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      return isFetch
-        ? NextResponse.json({ ok: true })
-        : NextResponse.redirect(new URL("/courses", req.url));
-    }
-
-    if (method === "DELETE") {
-      await serverFetch(`/courses/${id}`, { method: "DELETE" });
-      return isFetch
-        ? NextResponse.json({ ok: true })
-        : NextResponse.redirect(new URL("/courses", req.url));
-    }
-
-    return NextResponse.json(
-      { message: "Metode tidak didukung." },
-      { status: 400 }
-    );
+    const { id } = await params;
+    const body = (await req.json()) as {
+      name: string;
+      description?: string | null;
+    };
+    const data = await serverJson(`/courses/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return NextResponse.json(data);
   } catch (e) {
     if (e instanceof ApiError) {
-      if (!isFetch && e.status === 401) {
-        return NextResponse.redirect(
-          new URL(`/login?next=/courses/${id}/edit`, req.url)
-        );
-      }
-      return NextResponse.json(
-        { message: e.message, status: e.status },
-        { status: e.status }
-      );
+      return NextResponse.json({ message: e.message }, { status: e.status });
     }
-    return NextResponse.json(
-      { message: "Terjadi kesalahan." },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Unexpected error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_req: Request, { params }: Params) {
+  try {
+    const { id } = await params;
+    const data = await serverJson(`/courses/${id}`, { method: "DELETE" });
+    return NextResponse.json(data);
+  } catch (e) {
+    if (e instanceof ApiError) {
+      return NextResponse.json({ message: e.message }, { status: e.status });
+    }
+    return NextResponse.json({ message: "Unexpected error" }, { status: 500 });
   }
 }

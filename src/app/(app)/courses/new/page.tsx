@@ -1,25 +1,23 @@
 // src/app/(app)/courses/new/page.tsx
-import { cookies } from "next/headers";
+// Path: src/app/(app)/courses/new/page.tsx
 import { redirect } from "next/navigation";
-import { serverFetch, ApiError } from "@/lib/serverFetch";
-import CreateCourseForm from "@/components/forms/CreateCourseForm";
+import { apiJson } from "@/lib/apiGuard";
+import type { User } from "@/types/course";
+import CourseForm from "@/components/courses/CourseForm";
 
-export default async function Page() {
-  const token = (await cookies()).get("auth_token")?.value;
-  if (!token) redirect("/login?next=/courses/new");
-
-  try {
-    await serverFetch("/user", { method: "GET" });
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 401)
-      redirect("/login?next=/courses/new");
-    throw e;
-  }
+export default async function NewCoursePage() {
+  const me = await apiJson<User>("/user", {}, { next: "/courses/new" });
+  if (me.role !== "dosen") redirect("/courses");
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Buat Mata Kuliah</h1>
-      <CreateCourseForm action="/api/courses" />
+      <div className="rounded-2xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 p-6 text-white shadow">
+        <h1 className="text-xl font-semibold">Buat Mata Kuliah</h1>
+        <p className="text-sm opacity-90">
+          Isi nama & deskripsi singkat mata kuliah.
+        </p>
+      </div>
+      <CourseForm mode="create" />
     </div>
   );
 }

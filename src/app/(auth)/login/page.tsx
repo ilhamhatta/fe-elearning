@@ -72,6 +72,7 @@ export default function LoginPage() {
                          text-gray-900 placeholder:text-gray-400
                          focus:outline-none focus:ring-4 focus:ring-indigo-200 focus:border-indigo-500"
               placeholder="you@example.com"
+              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
